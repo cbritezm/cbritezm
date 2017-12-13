@@ -1,0 +1,109 @@
+conn / as sysdba
+
+##############################################################################################
+
+				DB PARAMETERS
+
+##############################################################################################
+
+	# show parameter pfile;
+   		. Para verificar si la base utiliza spfile o init para los seteos dinamicos de los parametros citados a continuación
+
+	# show parameter job_queue_processes;
+
+  		. si el valor esta en cero setearlo a 10. (alter system set job_queue_processes=10 scope=both;)
+		. verificar primero si el mismo puede modificado en forma dinamica consultando la vista  v$parameter
+
+	     select NAME,TYPE,ISDEFAULT,ISSES_MODIFIABLE,ISSYS_MODIFIABLE,ISSYS_MODIFIABLE from v$parameter where name like '%job_q%'
+
+	# show parameter timed_statistics;
+  		 . Debe estar en TRUE y es dinamico
+
+##############################################################################################
+
+				TABLESPACES VERIFICATION
+
+##############################################################################################
+	# select tablespace_name from dba_tablespace;
+    		. Verificar si existe el tablespace TOOLS para crear los objetos del usuario perfstat, si no existe se podria utilizar el tbs  USERS o crear un nuevo tbs con el nombre TOOLS con 1GB inicial y con extensiones de a un 1GB(NO UTILIZAR EL TABLESPACE SYSTEM)
+
+	# CREATE TABLESPACE
+    		. create tablespace tools datafile '/u01/app/oracle/product/10.2.0/db_1/oradata/orcl/tools_01.dbf' SIZE 1024M AUTOEXTEND ON NEXT 1024M MAXSIZE 3096M LOGGING extent management local autoallocate segment space management auto;
+
+
+##############################################################################################
+
+				STACKPACK CREATION
+
+##############################################################################################
+
+OBS: Scripts location at: $ORACLE_HOME/rdbms/admin
+
+INSTALATION AND CONFIGURATION
+
+	# start spcreate.sql;
+    		. Se corre este script para crear el repositorio del statpack
+    		. Indicar el password; el tablespace que deberia ser TOOLS O USERS; el tablespace temporal con el valor temp
+    
+ 
+	# select username from dba_users where username like '%PERF%';
+    		. Se verifica si el usuario perfstat fue creado con el script anterior
+
+ 	# select object_name,object_type from dba_objects where owner like '%PERF%';
+   		 . Se verifican los objetos del esquema
+ 
+ 	# Conectarse con el usuario PERFSTAT 
+  
+  		 conn perfstat/perfstat
+
+	# start spauto.sql
+     		. Con este script se activa el JOB para la toma de estadisticas y el cual corre por default cada 1 hora tomando snapshots
+
+SET PARAMETERS ON STACKPACK
+
+	# Set parameters on stackpack
+    
+		 . Valores para setear la periodicidad de la toma de snapshots : 30 minutos => 30/1440  (sysdate+30/1440)
+                                                                     seg. x dia => 60*60*24
+                                                                     hora       => 1/24
+     	
+
+VERIFICATION OF STACKPACK
+
+	# Run job created
+		. exec dbms_job.run(nro_job) 
+
+	# Consulta para verificar el job creado por el script :
+
+        	. select job,last_date,next_date,next_sec,failures,broken,interval from user_jobs;
+
+     	# Consulta para verificar los snapshot creados por el JOB :
+         
+        	. select snap_id,dbid,to_char(snap_time,'dd/mm/yyyy hh24:mi:ss') snap_time, snap_level,baseline from STATS$SNAPSHOT;
+
+	# desc dbms_job
+     		. Buscar la sección "Procedure Submit" para ver los parametros que puede recibir el procedimiento si es necesario indicar algun valor adicional
+
+
+TAKE REPORTS
+
+ 	# start spreport.sql
+     		. Ingresar los valores del intervalo de snapshot para la creación del reporte
+     		. Esto crea un archivo con el contenido del reporte y cual debe ser analizado
+exec statspack.snap(i_snap_level => 7, i_modify_parameter => 'true'); => Modificar el nivel de captura de estadisticas
+
+
+REMOVE JOB CREATED
+
+ 	# exec dbms_job.remove(nro_job)
+     		. Luego de realizar el analisis se debe remover el job y para lo cual se puede buscar el numero de job creado con la vista dba_jobs
+
+BROKEN JOB
+
+	# exec dbms_job.broken(job_id,true/false)
+
+TRUNCATE TABLES OF STACKPACK
+
+	# sqlplus / as sysdba ==== @sptrunc.sql
+ 
+ commit

@@ -1,0 +1,16 @@
+CONNECT TARGET dp_user/b4ck4pdtp_1234@BPOHISTP
+CONNECT CATALOG rman/rman@RMANCAT
+run {
+ allocate channel 'sb_0' type 'sbt_tape' parms 'SBT_LIBRARY=/opt/omni/lib/libob2oracle8_64bit.so,ENV=(OB2BARTYPE=Oracle8,OB2APPNAME=BPOHISTP,OB2BARLIST=BP_HPBCNBDOGDS1P_BPOHISTP_ORA_ARCH)'
+;
+ allocate channel 'sb_1' type 'sbt_tape' parms 'SBT_LIBRARY=/opt/omni/lib/libob2oracle8_64bit.so,ENV=(OB2BARTYPE=Oracle8,OB2APPNAME=BPOHISTP,OB2BARLIST=BP_HPBCNBDOGDS1P_BPOHISTP_ORA_ARCH)'
+;
+ allocate channel 'sb_2' type 'sbt_tape' parms 'SBT_LIBRARY=/opt/omni/lib/libob2oracle8_64bit.so,ENV=(OB2BARTYPE=Oracle8,OB2APPNAME=BPOHISTP,OB2BARLIST=BP_HPBCNBDOGDS1P_BPOHISTP_ORA_ARCH)'
+;
+ allocate channel 'sb_3' type 'sbt_tape' parms 'SBT_LIBRARY=/opt/omni/lib/libob2oracle8_64bit.so,ENV=(OB2BARTYPE=Oracle8,OB2APPNAME=BPOHISTP,OB2BARLIST=BP_HPBCNBDOGDS1P_BPOHISTP_ORA_ARCH)'
+;
+send device type 'sbt_tape' 'OB2BARHOSTNAME=hpbcnbdogds1p';
+blockrecover corruption list;
+}
+exit
+

@@ -1,0 +1,5 @@
+http://kamranagayev.com/2010/11/03/step-by-step-installing-oracle10gr2-on-oracle-solaris/
+
+https://oracleview.wordpress.com/2011/03/31/oracle-10gr2-rac-on-linux-5-5-using-virtualbox-4/
+
+http://www.oracle.com/technetwork/systems/hands-on-labs/deploy-rac-ovm-cluster-2101019.html

@@ -1,0 +1,13 @@
+./runInstaller -silent -debug -force \
+FROM_LOCATION=/u01/install/database/stage/products.xml \
+oracle.install.option=INSTALL_DB_SWONLY \
+UNIX_GROUP_NAME=oinstall \
+INVENTORY_LOCATION=/u01/app/oraInventory \
+ORACLE_HOME=/u01/app/oracle/product/11.2.0/dbhome_1 \
+ORACLE_HOME_NAME="OraDb11g_Home1" \
+ORACLE_BASE=/u01/app/oracle \
+oracle.install.db.InstallEdition=EE \
+oracle.install.db.isCustomInstall=false \
+oracle.install.db.DBA_GROUP=oinstall \
+oracle.install.db.OPER_GROUP=oinstall \
+DECLINE_SECURITY_UPDATES=true

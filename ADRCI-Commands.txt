@@ -1,0 +1,86 @@
+
+http://uhesse.com/2011/06/01/adrci-a-survival-guide-for-the-dba/
+
+==============================================================
+1. Viewing the alert.log
+==============================================================
+
+adrci> set home diag/rdbms/orcl/orcl
+adrci> show alert -tail -f
+
+==============================================================
+2. show incident - show problem
+==============================================================
+
+adrci> show problem
+
+ADR Home = /u01/app/oracle/diag/rdbms/orcl/orcl:
+*************************************************************************
+PROBLEM_ID           PROBLEM_KEY                                                 LAST_INCIDENT        LASTINC_TIME                             
+-------------------- ----------------------------------------------------------- -------------------- ----------------------------------------
+1                    ORA 7445 [qcstda()+702]                                     6201                 2011-06-01 10:22:08.924000 +02:00       
+
+adrci> show incident
+
+ADR Home = /u01/app/oracle/diag/rdbms/orcl/orcl:
+*************************************************************************
+INCIDENT_ID          PROBLEM_KEY                                                 CREATE_TIME                              
+-------------------- ----------------------------------------------------------- ----------------------------------------
+6153                 ORA 7445 [qcstda()+702]                                     2011-06-01 10:18:42.995000 +02:00       
+6201                 ORA 7445 [qcstda()+702]                                     2011-06-01 10:22:08.924000 +02:00       
+
+
+adrci> show incident -mode detail -p "incident_id=6201"
+
+==============================================================
+3. show incident trace
+==============================================================
+
+adrci> show trace /u01/app/oracle/diag/rdbms/orcl/orcl/incident/incdir_6201/orcl_ora_2299_i6201.trc
+
+==============================================================
+4. Create/Generate package
+==============================================================
+
+adrci> ips create package problem 1 correlate all
+ Created package 2 based on problem id 1, correlation level all
+This did not yet create a ZIP file and is therefore referred to as “Logical Package”. 
+
+
+adrci> ips generate package 2 in "/home/oracle"  
+Generated package 2 in file /home/oracle/ORA7445qc_20110601112533_COM_1.zip, mode complete
+
+==============================================================
+5. Purging with adrci
+==============================================================
+
+adrci> show control
+
+ADR Home = /u01/app/oracle/diag/rdbms/orcl/orcl:
+*************************************************************************
+ADRID                SHORTP_POLICY        LONGP_POLICY         LAST_MOD_TIME                            LAST_AUTOPRG_TIME                        LAST_MANUPRG_TIME                        ADRDIR_VERSION       ADRSCHM_VERSION      ADRSCHMV_SUMMARY     ADRALERT_VERSION     CREATE_TIME                              
+-------------------- -------------------- -------------------- ---------------------------------------- ---------------------------------------- ---------------------------------------- -------------------- -------------------- -------------------- -------------------- ----------------------------------------
+1335663986           720                  8760                 2011-05-27 10:16:46.997118 +02:00                                                                                          1                    2                    80                   1                    2011-05-27 10:16:46.997118 +02:00       
+1 rows fetched
+The ordinary tracefiles will stay for 30 days (720 hours), while files like incident files stay one year (8760 hours) by default. We can change that policy with for example:
+
+adrci> set control (SHORTP_POLICY = 360)
+
+adrci> set control (LONGP_POLICY = 2190)
+
+adrci> show control
+ADR Home = /u01/app/oracle/diag/rdbms/orcl/orcl:
+*************************************************************************
+ADRID                SHORTP_POLICY        LONGP_POLICY         LAST_MOD_TIME                            LAST_AUTOPRG_TIME                        LAST_MANUPRG_TIME                        ADRDIR_VERSION       ADRSCHM_VERSION      ADRSCHMV_SUMMARY     ADRALERT_VERSION     CREATE_TIME
+-------------------- -------------------- -------------------- ---------------------------------------- ---------------------------------------- ---------------------------------------- -------------------- -------------------- -------------------- -------------------- ----------------------------------------
+1335663986           360                  2190                 2011-06-01 11:42:17.208064 +02:00                                                                                          1                    2                    80                   1                    2011-05-27 10:16:46.997118 +02:00
+1 rows fetched
+Also, we may want to purge tracefiles manually. Following command will manually purge all tracefiles older than 2 days (2880 minutes):
+
+adrci> purge -age 2880 -type trace
+
+==============================================================
+5. show all trace files
+==============================================================
+
+adrci> show tracefile -rt

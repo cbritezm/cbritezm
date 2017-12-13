@@ -1,0 +1,473 @@
+
+http://uhesse.com/2011/06/01/adrci-a-survival-guide-for-the-dba/
+
+adrci: A survival guide for the DBA
+
+Starting with 11gR1, we have a new way to deal with Oracle Errors & Tracefiles: There is now a special command line utility dedicated for that purpose called adrci (Automatic Diagnostic Repository Command Interpreter). This posting is intended to show you the (in my view) essential commands, a DBA ought to know in order to use it. We will look at
+
+Viewing the alert.log
+The relation between incident & problem
+Creation of Packages & ZIP files to send to Oracle Support
+Managing, especially purging tracefiles
+I will at first create a problem. Don’t do that with your Production Database! Especially: Never do DML on dictionary tables!
+
+[oracle@uhesse ~]$ sqlplus / as sysdba
+
+SQL*Plus: Release 11.2.0.2.0 Production on Wed Jun 1 10:25:06 2011
+
+Copyright (c) 1982, 2010, Oracle.  All rights reserved.
+
+Connected to:
+Oracle Database 11g Enterprise Edition Release 11.2.0.2.0 - 64bit Production
+With the Partitioning, OLAP, Data Mining and Real Application Testing options
+
+SQL> select * from v$version;
+
+BANNER
+--------------------------------------------------------------------------------
+Oracle Database 11g Enterprise Edition Release 11.2.0.2.0 - 64bit Production
+PL/SQL Release 11.2.0.2.0 - Production
+CORE    11.2.0.2.0    Production
+TNS for Linux: Version 11.2.0.2.0 - Production
+NLSRTL Version 11.2.0.2.0 - Production
+
+SQL> show parameter diagnostic
+
+NAME                     TYPE     VALUE
+------------------------------------ ----------- ------------------------------
+diagnostic_dest              string     /u01/app/oracle
+
+SQL> grant dba to adam identified by adam;
+
+Grant succeeded.
+
+SQL> connect adam/adam
+Connected.
+SQL> create table t (n number);
+
+Table created.
+
+SQL> select object_id from user_objects;
+
+ OBJECT_ID
+----------
+     75719
+
+SQL> connect / as sysdba
+Connected.
+SQL> update tab$ set cols=2 where obj#=75719;
+
+1 row updated.
+
+SQL> commit;
+
+Commit complete.
+
+SQL> alter system flush shared_pool;
+
+System altered.
+
+SQL> connect adam/adam
+Connected.
+SQL> select * from t;
+select * from t
+              *
+ERROR at line 1:
+ORA-03113: end-of-file on communication channel
+Process ID: 2236
+Session ID: 29 Serial number: 9
+
+I flushed the Shared Pool to get the Data Dictionary Cache empty. 
+Else the select may not crash the session as it did. 
+Imagine the user calls me now on the phone. 
+Our first idea as an experienced DBA: We look at the alert.log! Right so. 
+Please notice that we now have two different kinds of the alert.log.
+
+One is present in the conventional text format, 
+per OFA in $ORACLE_BASE/diag/rdbms/name of the db/name of the instance/trace 
+This location is determined by the new initialization parameter DIAGNOSTIC_DEST, 
+while BACKGROUND_DUMP_DEST is deprecated in 11g.
+
+
+==============================================================
+1. Viewing the alert.log
+==============================================================
+
+ The other one is in XML format placed in 
+  $ORACLE_BASE/diag/rdbms/name of the db/name of the instance/alert 
+
+ This version of the alert.log is accessed by adrci:
+
+[oracle@uhesse ~]$ adrci
+
+ADRCI: Release 11.2.0.2.0 - Production on Wed Jun 1 10:20:08 2011
+
+Copyright (c) 1982, 2009, Oracle and/or its affiliates.  All rights reserved.
+
+ADR base = "/u01/app/oracle"
+adrci> show home
+ADR Homes:
+diag/tnslsnr/uhesse/listener
+diag/rdbms/orcl/orcl
+
+Please notice that we have different ADR Homes. 
+In my case only two, because I am not using Grid Infrastructure on this Demo System, 
+else there would be another one. I specify my Database Home first. 
+Then I look at the alert.log. Good news if you are on Windows: Finally, you can tail -f your alert.log also :-)
+
+adrci> set home diag/rdbms/orcl/orcl
+adrci> show alert -tail -f
+2011-06-01 10:16:35.337000 +02:00
+db_recovery_file_dest_size of 4032 MB is 0.00% used. This is a
+user-specified limit on the amount of space that will be used by this
+database for recovery-related files, and does not reflect the amount of
+space available in the underlying filesystem or ASM diskgroup.
+Starting background process CJQ0
+CJQ0 started with pid=21, OS id=2204
+2011-06-01 10:18:42.668000 +02:00
+Exception [type: SIGSEGV, Address not mapped to object] [ADDR:0x0] [PC:0x90D891A, qcstda()+702] [flags: 0x0, count: 1]
+Errors in file /u01/app/oracle/diag/rdbms/orcl/orcl/trace/orcl_ora_2236.trc  (incident=6153):
+ORA-07445: exception encountered: core dump [qcstda()+702] [SIGSEGV] [ADDR:0x0] [PC:0x90D891A] [Address not mapped to object] []
+Incident details in: /u01/app/oracle/diag/rdbms/orcl/orcl/incident/incdir_6153/orcl_ora_2236_i6153.trc
+Use ADRCI or Support Workbench to package the incident.
+See Note 411.1 at My Oracle Support for error and packaging details.
+2011-06-01 10:18:47.518000 +02:00
+Dumping diagnostic data in directory=[cdmp_20110601101847], requested by (instance=1, osid=2236), summary=[incident=6153].
+2011-06-01 10:18:48.727000 +02:00
+Sweep [inc][6153]: completed
+Sweep [inc2][6153]: completed
+
+
+==============================================================
+2. The relation between Incident & Problem
+==============================================================
+
+You see the incident was recorded in the alert.log. 
+And it tells you “Use ADRCI or Support Workbench to package the incident.” 
+We will soon see how to do that. 
+
+First I’d like to explain the relation between incident and problem: 
+ An incident is the concrete occurrence of a problem. 
+ In other words: The same problem may have multiple incidents. 
+ To show that, I will open another terminal and do again a select against the table t, 
+ while still tailing the alert log from the first session.
+
+Second terminal:
+
+[oracle@uhesse ~]$ sqlplus adam/adam
+
+SQL*Plus: Release 11.2.0.2.0 Production on Wed Jun 1 10:21:52 2011
+
+Copyright (c) 1982, 2010, Oracle.  All rights reserved.
+
+Connected to:
+Oracle Database 11g Enterprise Edition Release 11.2.0.2.0 - 64bit Production
+With the Partitioning, OLAP, Data Mining and Real Application Testing options
+
+SQL> select * from t where n=42;
+select * from t where n=42
+                         *
+ERROR at line 1:
+ORA-03113: end-of-file on communication channel
+Process ID: 2299
+Session ID: 36 Serial number: 11
+First terminal:
+
+2011-06-01 10:21:31.367000 +02:00
+Starting background process SMCO
+SMCO started with pid=19, OS id=2268
+2011-06-01 10:22:08.781000 +02:00
+Exception [type: SIGSEGV, Address not mapped to object] [ADDR:0x0] [PC:0x90D891A, qcstda()+702] [flags: 0x0, count: 1]
+Errors in file /u01/app/oracle/diag/rdbms/orcl/orcl/trace/orcl_ora_2299.trc  (incident=6201):
+ORA-07445: exception encountered: core dump [qcstda()+702] [SIGSEGV] [ADDR:0x0] [PC:0x90D891A] [Address not mapped to object] []
+Incident details in: /u01/app/oracle/diag/rdbms/orcl/orcl/incident/incdir_6201/orcl_ora_2299_i6201.trc
+Use ADRCI or Support Workbench to package the incident.
+See Note 411.1 at My Oracle Support for error and packaging details.
+2011-06-01 10:22:11.135000 +02:00
+Dumping diagnostic data in directory=[cdmp_20110601102211], requested by (instance=1, osid=2299), summary=[incident=6201].
+2011-06-01 10:22:13.370000 +02:00
+Sweep [inc][6201]: completed
+Sweep [inc2][6201]: completed
+
+
+I have seen the second incident recorded. I exit out of the tail -f with CTRL+C and continue:
+
+adrci> show problem
+
+ADR Home = /u01/app/oracle/diag/rdbms/orcl/orcl:
+*************************************************************************
+PROBLEM_ID           PROBLEM_KEY                                                 LAST_INCIDENT        LASTINC_TIME                             
+-------------------- ----------------------------------------------------------- -------------------- ----------------------------------------
+1                    ORA 7445 [qcstda()+702]                                     6201                 2011-06-01 10:22:08.924000 +02:00       
+
+1 rows fetched
+
+
+So I have one problem with the ID 1 and the last incident occurred at 10:22. Are there more?
+
+adrci> show incident
+
+ADR Home = /u01/app/oracle/diag/rdbms/orcl/orcl:
+*************************************************************************
+INCIDENT_ID          PROBLEM_KEY                                                 CREATE_TIME                              
+-------------------- ----------------------------------------------------------- ----------------------------------------
+6153                 ORA 7445 [qcstda()+702]                                     2011-06-01 10:18:42.995000 +02:00       
+6201                 ORA 7445 [qcstda()+702]                                     2011-06-01 10:22:08.924000 +02:00       
+
+2 rows fetched
+
+I want to see some more detail about the incidents:
+
+adrci> show incident -mode detail -p "incident_id=6201"
+
+ADR Home = /u01/app/oracle/diag/rdbms/orcl/orcl:
+*************************************************************************
+
+**********************************************************
+INCIDENT INFO RECORD 1
+**********************************************************
+   INCIDENT_ID                   6201
+   STATUS                        ready
+   CREATE_TIME                   2011-06-01 10:22:08.924000 +02:00
+   PROBLEM_ID                    1
+   CLOSE_TIME                   
+   FLOOD_CONTROLLED              none
+   ERROR_FACILITY                ORA
+   ERROR_NUMBER                  7445
+   ERROR_ARG1                    qcstda()+702
+   ERROR_ARG2                    SIGSEGV
+   ERROR_ARG3                    ADDR:0x0
+   ERROR_ARG4                    PC:0x90D891A
+   ERROR_ARG5                    Address not mapped to object
+   ERROR_ARG6                   
+   ERROR_ARG7                   
+   ERROR_ARG8                   
+   ERROR_ARG9                   
+   ERROR_ARG10                  
+   ERROR_ARG11                  
+   ERROR_ARG12                  
+   SIGNALLING_COMPONENT          SQL_Parser
+   SIGNALLING_SUBCOMPONENT      
+   SUSPECT_COMPONENT            
+   SUSPECT_SUBCOMPONENT         
+   ECID                         
+   IMPACTS                       0
+   PROBLEM_KEY                   ORA 7445 [qcstda()+702]
+   FIRST_INCIDENT                6153
+   FIRSTINC_TIME                 2011-06-01 10:18:42.995000 +02:00
+   LAST_INCIDENT                 6201
+   LASTINC_TIME                  2011-06-01 10:22:08.924000 +02:00
+   IMPACT1                       0
+   IMPACT2                       0
+   IMPACT3                       0
+   IMPACT4                       0
+   KEY_NAME                      ProcId
+   KEY_VALUE                     25.3
+   KEY_NAME                      Client ProcId
+   KEY_VALUE                     oracle@uhesse (TNS V1-V3).2299_140262306875136
+   KEY_NAME                      PQ
+   KEY_VALUE                     (0, 1306916528)
+   KEY_NAME                      SID
+   KEY_VALUE                     36.11
+   OWNER_ID                      1
+   INCIDENT_FILE                 /u01/app/oracle/diag/rdbms/orcl/orcl/trace/orcl_ora_2299.trc
+   OWNER_ID                      1
+   INCIDENT_FILE                 /u01/app/oracle/diag/rdbms/orcl/orcl/incident/incdir_6201/orcl_ora_2299_i6201.trc
+1 rows fetched
+I want to look at the incident tracefile mentioned above:
+
+adrci> show trace /u01/app/oracle/diag/rdbms/orcl/orcl/incident/incdir_6201/orcl_ora_2299_i6201.trc
+/u01/app/oracle/diag/rdbms/orcl/orcl/incident/incdir_6201/orcl_ora_2299_i6201.trc
+ ----------------------------------------------------------
+ LEVEL PAYLOAD
+ ----- ------------------------------------------------------------------------------------------------------------------------------------------------
+ Dump file /u01/app/oracle/diag/rdbms/orcl/orcl/incident/incdir_6201/orcl_ora_2299_i6201.trc
+ Oracle Database 11g Enterprise Edition Release 11.2.0.2.0 - 64bit Production
+ With the Partitioning, OLAP, Data Mining and Real Application Testing options
+ ORACLE_HOME = /u01/app/oracle/product/11.2.0/db_1
+ System name:      Linux
+ Node name:        uhesse
+ Release:  2.6.32-100.28.5.el6.x86_64
+ Version:  #1 SMP Wed Feb 2 18:40:23 EST 2011
+ Machine:  x86_64
+ Instance name: orcl
+ Redo thread mounted by this instance: 1
+ Oracle process number: 25
+ Unix process pid: 2299, image: oracle@uhesse (TNS V1-V3)
+*** 2011-06-01 10:22:08.929
+ *** SESSION ID:(36.11) 2011-06-01 10:22:08.929
+ *** CLIENT ID:() 2011-06-01 10:22:08.929
+ *** SERVICE NAME:(SYS$USERS) 2011-06-01 10:22:08.929
+ *** MODULE NAME:(SQL*Plus) 2011-06-01 10:22:08.929
+ *** ACTION NAME:() 2011-06-01 10:22:08.929
+Dump continued from file: /u01/app/oracle/diag/rdbms/orcl/orcl/trace/orcl_ora_2299.trc
+ 1>     ***** Error Stack *****
+ ORA-07445: exception encountered: core dump [qcstda()+702] [SIGSEGV] [ADDR:0x0] [PC:0x90D891A] [Address not mapped to object] []
+ 1<     ***** Error Stack *****
+ 1>     ***** Dump for incident 6201 (ORA 7445 [qcstda()+702]) *****
+ 2>      ***** Beginning of Customized Incident Dump(s) *****
+ 2>      ***** Beginning of Customized Incident Dump(s) *****
+ Exception [type: SIGSEGV, Address not mapped to object] [ADDR:0x0] [PC:0x90D891A, qcstda()+702] [flags: 0x0, count: 1]
+ Registers:
+ %rax: 0x0000000000000000 %rbx: 0x00007f915c77f0e0 %rcx: 0x0000000000000007
+ %rdx: 0x0000000000000000 %rdi: 0x00007f915c77be98 %rsi: 0x0000000000000000
+ %rsp: 0x00007fffc65178e0 %rbp: 0x00007fffc6517960  %r8: 0x0000000000000028
+ %r9: 0x0000000000002000 %r10: 0x00000000093849c0 %r11: 0x0000000000000168
+ %r12: 0x00007f915c77ade8 %r13: 0x000000008edbb178 %r14: 0x00007f915c777da0
+ %r15: 0x00007f915c77ae28 %rip: 0x00000000090d891a %efl: 0x0000000000010246
+ qcstda()+686 (0x90d890a) mov -0x40(%rbp),%rdi
+ qcstda()+690 (0x90d890e) mov %rdx,0x18(%rbx)
+ qcstda()+694 (0x90d8912) mov 0x60(%r15),%rsi
+ qcstda()+698 (0x90d8916) mov %ecx,0x8(%r15)
+ > qcstda()+702 (0x90d891a) mov %ecx,(%rsi)
+ qcstda()+704 (0x90d891c) mov 0x78(%rdi),%rdx
+ qcstda()+708 (0x90d8920) test %rdx,%rdx
+ qcstda()+711 (0x90d8923) jnz 0x90d8d03
+ qcstda()+717 (0x90d8929) mov -0x70(%rbp),%rdi
+*** 2011-06-01 10:22:08.963
+ dbkedDefDump(): Starting a non-incident diagnostic dump (flags=0x3, level=3, mask=0x0)
+ 3>       ***** Current SQL Statement for this session (sql_id=8r222qucmawdt) *****
+          select * from t where n=42
+ 3<       ***** current_sql_statement ***** 3 
+
+
+==============================================================
+3. Creation of Packages & ZIP files to send to Oracle Support
+==============================================================
+
+I may not be able to solve the problem myself. 
+ Oracle Support will help me with that one. 
+ I gather all the required information with a method called “Incident Packaging Service” (IPS):
+
+adrci> ips create package problem 1 correlate all
+ Created package 2 based on problem id 1, correlation level all
+This did not yet create a ZIP file and is therefore referred to as “Logical Package”. 
+ The ZIP file is generated from the Logical Package that was created:
+
+adrci> ips generate package 2 in "/home/oracle"  
+Generated package 2 in file /home/oracle/ORA7445qc_20110601112533_COM_1.zip, mode complete
+
+==============================================================
+4. Managing, especially purging of tracefiles
+==============================================================
+
+Now to the management of tracefiles. You may notice that 11g creates lots of tracefiles that need to be purged from time to time. In fact, this is done automatically, but you may want to change the default purge policy:
+
+adrci> show tracefile -rt
+ 01-JUN-11 10:31:48  diag/rdbms/orcl/orcl/trace/orcl_mmon_2106.trc
+ 01-JUN-11 09:43:43  diag/rdbms/orcl/orcl/trace/orcl_ckpt_2100.trc
+ 01-JUN-11 09:22:13  diag/rdbms/orcl/orcl/trace/alert_orcl.log
+ 01-JUN-11 09:22:11  diag/rdbms/orcl/orcl/trace/orcl_diag_2088.trc
+ 01-JUN-11 09:22:10  diag/rdbms/orcl/orcl/trace/orcl_ora_2299.trc
+ 01-JUN-11 09:22:10  diag/rdbms/orcl/orcl/incident/incdir_6201/orcl_ora_2299_i6201.trc
+ 01-JUN-11 09:18:47  diag/rdbms/orcl/orcl/trace/orcl_ora_2236.trc
+ 01-JUN-11 09:18:47  diag/rdbms/orcl/orcl/incident/incdir_6153/orcl_ora_2236_i6153.trc
+ 01-JUN-11 09:17:19  diag/rdbms/orcl/orcl/trace/orcl_dbrm_2090.trc
+ 01-JUN-11 09:16:44  diag/rdbms/orcl/orcl/trace/orcl_j002_2210.trc
+ 01-JUN-11 09:16:30  diag/rdbms/orcl/orcl/trace/orcl_ora_2187.trc
+ 01-JUN-11 09:16:19  diag/rdbms/orcl/orcl/trace/orcl_mman_2094.trc
+ 01-JUN-11 09:16:16  diag/rdbms/orcl/orcl/trace/orcl_vktm_2082.trc
+ 01-JUN-11 09:16:14  diag/rdbms/orcl/orcl/trace/orcl_ora_2016.trc
+ 30-MAY-11 14:07:02  diag/rdbms/orcl/orcl/trace/orcl_mmon_2093.trc
+ 30-MAY-11 11:15:30  diag/rdbms/orcl/orcl/trace/orcl_ora_3414.trc
+ 30-MAY-11 11:00:01  diag/rdbms/orcl/orcl/trace/orcl_j000_2245.trc
+ 30-MAY-11 10:56:58  diag/rdbms/orcl/orcl/trace/orcl_dbrm_2077.trc
+ 30-MAY-11 10:56:20  diag/rdbms/orcl/orcl/trace/orcl_j002_2201.trc
+ 30-MAY-11 10:56:06  diag/rdbms/orcl/orcl/trace/orcl_ora_2178.trc
+ 30-MAY-11 10:55:58  diag/rdbms/orcl/orcl/trace/orcl_mman_2081.trc
+ 30-MAY-11 10:55:55  diag/rdbms/orcl/orcl/trace/orcl_vktm_2069.trc
+ 30-MAY-11 10:55:53  diag/rdbms/orcl/orcl/trace/orcl_ora_2006.trc
+ 27-MAY-11 10:53:25  diag/rdbms/orcl/orcl/trace/orcl_mmon_8589.trc
+ 27-MAY-11 10:17:05  diag/rdbms/orcl/orcl/trace/orcl_ora_11390.trc
+ 27-MAY-11 09:26:41  diag/rdbms/orcl/orcl/trace/orcl_ora_10739.trc
+ 27-MAY-11 09:23:53  diag/rdbms/orcl/orcl/trace/orcl_dbrm_8573.trc
+ 27-MAY-11 09:22:58  diag/rdbms/orcl/orcl/trace/orcl_ora_8687.trc
+ 27-MAY-11 09:22:54  diag/rdbms/orcl/orcl/trace/orcl_mman_8577.trc
+ 27-MAY-11 09:22:50  diag/rdbms/orcl/orcl/trace/orcl_vktm_8565.trc
+ 27-MAY-11 09:22:48  diag/rdbms/orcl/orcl/trace/orcl_ora_8516.trc
+ 27-MAY-11 09:22:44  diag/rdbms/orcl/orcl/trace/orcl_ora_8515.trc
+ 27-MAY-11 09:22:44  diag/rdbms/orcl/orcl/trace/orcl_vktm_8347.trc
+ 27-MAY-11 09:21:24  diag/rdbms/orcl/orcl/trace/orcl_dbrm_8355.trc
+ 27-MAY-11 09:20:29  diag/rdbms/orcl/orcl/trace/orcl_ora_8470.trc
+ 27-MAY-11 09:20:28  diag/rdbms/orcl/orcl/trace/orcl_mmon_8371.trc
+ 27-MAY-11 09:20:28  diag/rdbms/orcl/orcl/trace/orcl_ora_8381.trc
+ 27-MAY-11 09:20:26  diag/rdbms/orcl/orcl/trace/orcl_mman_8359.trc
+ 27-MAY-11 09:20:20  diag/rdbms/orcl/orcl/trace/orcl_ora_8299.trc
+ 27-MAY-11 09:20:15  diag/rdbms/orcl/orcl/trace/orcl_ora_8297.trc
+ 27-MAY-11 09:20:15  diag/rdbms/orcl/orcl/trace/orcl_vktm_8096.trc
+ 27-MAY-11 09:20:07  diag/rdbms/orcl/orcl/trace/orcl_ora_8296.trc
+ 27-MAY-11 09:19:42  diag/rdbms/orcl/orcl/trace/orcl_ora_8285.trc
+ 27-MAY-11 09:19:33  diag/rdbms/orcl/orcl/trace/orcl_dm00_8271.trc
+ 27-MAY-11 09:19:33  diag/rdbms/orcl/orcl/trace/orcl_dw00_8273.trc
+ 27-MAY-11 09:19:11  diag/rdbms/orcl/orcl/trace/orcl_dbrm_8104.trc
+ 27-MAY-11 09:18:53  diag/rdbms/orcl/orcl/trace/orcl_ora_8267.trc
+ 27-MAY-11 09:18:33  diag/rdbms/orcl/orcl/trace/orcl_j001_8237.trc
+ 27-MAY-11 09:18:26  diag/rdbms/orcl/orcl/trace/orcl_mmon_8219.trc
+ 27-MAY-11 09:18:23  diag/rdbms/orcl/orcl/trace/orcl_ora_8231.trc
+ 27-MAY-11 09:18:22  diag/rdbms/orcl/orcl/trace/orcl_cjq0_8229.trc
+ 27-MAY-11 09:18:16  diag/rdbms/orcl/orcl/trace/orcl_ora_8131.trc
+ 27-MAY-11 09:18:14  diag/rdbms/orcl/orcl/trace/orcl_m000_8223.trc
+ 27-MAY-11 09:18:13  diag/rdbms/orcl/orcl/trace/orcl_mman_8108.trc
+ 27-MAY-11 09:18:05  diag/rdbms/orcl/orcl/trace/orcl_ora_8048.trc
+ 27-MAY-11 09:17:59  diag/rdbms/orcl/orcl/trace/orcl_vktm_7920.trc
+ 27-MAY-11 09:17:59  diag/rdbms/orcl/orcl/trace/orcl_ora_8046.trc
+ 27-MAY-11 09:17:00  diag/rdbms/orcl/orcl/trace/orcl_mman_7932.trc
+ 27-MAY-11 09:16:56  diag/rdbms/orcl/orcl/trace/orcl_ora_7954.trc
+ 27-MAY-11 09:16:51  diag/rdbms/orcl/orcl/trace/orcl_ora_7871.trc
+I have already got some tracefiles. How long are they going to stay?
+
+adrci> show control
+
+ADR Home = /u01/app/oracle/diag/rdbms/orcl/orcl:
+*************************************************************************
+ADRID                SHORTP_POLICY        LONGP_POLICY         LAST_MOD_TIME                            LAST_AUTOPRG_TIME                        LAST_MANUPRG_TIME                        ADRDIR_VERSION       ADRSCHM_VERSION      ADRSCHMV_SUMMARY     ADRALERT_VERSION     CREATE_TIME                              
+-------------------- -------------------- -------------------- ---------------------------------------- ---------------------------------------- ---------------------------------------- -------------------- -------------------- -------------------- -------------------- ----------------------------------------
+1335663986           720                  8760                 2011-05-27 10:16:46.997118 +02:00                                                                                          1                    2                    80                   1                    2011-05-27 10:16:46.997118 +02:00       
+1 rows fetched
+The ordinary tracefiles will stay for 30 days (720 hours), while files like incident files stay one year (8760 hours) by default. We can change that policy with for example:
+
+adrci> set control (SHORTP_POLICY = 360)
+
+adrci> set control (LONGP_POLICY = 2190)
+
+adrci> show control
+ADR Home = /u01/app/oracle/diag/rdbms/orcl/orcl:
+*************************************************************************
+ADRID                SHORTP_POLICY        LONGP_POLICY         LAST_MOD_TIME                            LAST_AUTOPRG_TIME                        LAST_MANUPRG_TIME                        ADRDIR_VERSION       ADRSCHM_VERSION      ADRSCHMV_SUMMARY     ADRALERT_VERSION     CREATE_TIME
+-------------------- -------------------- -------------------- ---------------------------------------- ---------------------------------------- ---------------------------------------- -------------------- -------------------- -------------------- -------------------- ----------------------------------------
+1335663986           360                  2190                 2011-06-01 11:42:17.208064 +02:00                                                                                          1                    2                    80                   1                    2011-05-27 10:16:46.997118 +02:00
+1 rows fetched
+Also, we may want to purge tracefiles manually. Following command will manually purge all tracefiles older than 2 days (2880 minutes):
+
+adrci> purge -age 2880 -type trace
+adrci> show tracefile -rt
+   01-JUN-11 10:46:54  diag/rdbms/orcl/orcl/trace/orcl_mmon_2106.trc
+   01-JUN-11 09:43:43  diag/rdbms/orcl/orcl/trace/orcl_ckpt_2100.trc
+   01-JUN-11 09:22:13  diag/rdbms/orcl/orcl/trace/alert_orcl.log
+   01-JUN-11 09:22:11  diag/rdbms/orcl/orcl/trace/orcl_diag_2088.trc
+   01-JUN-11 09:22:10  diag/rdbms/orcl/orcl/incident/incdir_6201/orcl_ora_2299_i6201.trc
+   01-JUN-11 09:22:10  diag/rdbms/orcl/orcl/trace/orcl_ora_2299.trc
+   01-JUN-11 09:18:47  diag/rdbms/orcl/orcl/incident/incdir_6153/orcl_ora_2236_i6153.trc
+   01-JUN-11 09:18:47  diag/rdbms/orcl/orcl/trace/orcl_ora_2236.trc
+   01-JUN-11 09:17:19  diag/rdbms/orcl/orcl/trace/orcl_dbrm_2090.trc
+   01-JUN-11 09:16:44  diag/rdbms/orcl/orcl/trace/orcl_j002_2210.trc
+   01-JUN-11 09:16:30  diag/rdbms/orcl/orcl/trace/orcl_ora_2187.trc
+   01-JUN-11 09:16:19  diag/rdbms/orcl/orcl/trace/orcl_mman_2094.trc
+   01-JUN-11 09:16:16  diag/rdbms/orcl/orcl/trace/orcl_vktm_2082.trc
+   01-JUN-11 09:16:14  diag/rdbms/orcl/orcl/trace/orcl_ora_2016.trc
+   30-MAY-11 14:07:02  diag/rdbms/orcl/orcl/trace/orcl_mmon_2093.trc
+   30-MAY-11 11:15:30  diag/rdbms/orcl/orcl/trace/orcl_ora_3414.trc
+   30-MAY-11 11:00:01  diag/rdbms/orcl/orcl/trace/orcl_j000_2245.trc
+   30-MAY-11 10:56:58  diag/rdbms/orcl/orcl/trace/orcl_dbrm_2077.trc
+   30-MAY-11 10:56:20  diag/rdbms/orcl/orcl/trace/orcl_j002_2201.trc
+   30-MAY-11 10:56:06  diag/rdbms/orcl/orcl/trace/orcl_ora_2178.trc
+   30-MAY-11 10:55:58  diag/rdbms/orcl/orcl/trace/orcl_mman_2081.trc
+   30-MAY-11 10:55:55  diag/rdbms/orcl/orcl/trace/orcl_vktm_2069.trc
+   30-MAY-11 10:55:53  diag/rdbms/orcl/orcl/trace/orcl_ora_2006.trc
+
+Conclusion: With adrci, we have a new and efficient utility to deal with Oracle Errors – 
+especially for collecting information to send them to Oracle Support. 
+
+This functionality is called Incident Packaging Service. 11g is generating lots of tracefiles. 
+We can control the purging policy of them with adrci. Finally, we can now tail -f our alert.log from any OS.
+

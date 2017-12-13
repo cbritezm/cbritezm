@@ -1,0 +1,95 @@
+
+Pasos
+
+-crear el spfile en bd inicial para obtener el INITorcl(instancia) y copiar el INITorcl y PWDorcl en app/product/11.2/db/database de la nueva ubicacion
+
+create pfile from spfile;
+
+
+Setear las variables oracle home y oracle sid en el destino 
+
+
+copiar la base en el nuevo destino
+
+Modificar el INITorcl "app/product/11.2/db/database"
+
+crear el listener configurar el servicio listener
+
+crear el servicio oracle   oradim -new -sid orcl -startmode auto
+
+
+
+sqlplus / as sysdba
+
+En modo startup mount
+
+
+
+
+Datafile
+
+select name from v$datafile;
+
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\SYSTEM01.DBF
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\SYSAUX01.DBF
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\UNDOTBS01.DBF
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\USERS01.DBF
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\EXAMPLE01.DBF
+
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\SYSTEM01.DBF' to 'C:\ORADATA\ORCL2\SYSTEM01.DBF'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\SYSAUX01.DBF' to 'C:\ORADATA\ORCL2\SYSAUX01.DBF'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\UNDOTBS01.DBF' to 'C:\ORADATA\ORCL2\UNDOTBS01.DBF'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\USERS01.DBF' to 'C:\ORADATA\ORCL2\USERS01.DBF'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\EXAMPLE01.DBF' to 'C:\ORADATA\ORCL2\EXAMPLE01.DBF'
+
+###############################################################################################
+
+
+
+Tempfile
+
+
+select name from v$tempfile;
+
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\TEMP01.DBF
+
+
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\TEMP01.DBF' to 'C:\ORADATA\ORCL2\TEMP01.DBF'
+
+
+###############################################################################################
+
+
+
+Logfile
+
+
+select member from v$logfile;
+
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO03.LOG
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO02.LOG
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO01.LOG
+
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO03.LOG' to 'C:\ORADATA\ORCL2\REDO03.LOG'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO02.LOG' to 'C:\ORADATA\ORCL2\REDO02.LOG'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO01.LOG' to 'C:\ORADATA\ORCL2\REDO01.LOG'
+
+
+################################################################################################
+
+
+shutdown immediate
+
+
+startup
+
+

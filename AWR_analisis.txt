@@ -1,0 +1,95 @@
+Oracle AWR reports summary
+--------------------------
+
+1- Regla general, db time muy superior a enlapsed time --> Hay un problema
+
+En este caso las sesiones esperan "algo".
+
+2- Hard Parse tiene que ser menor a 1. Si el hard parse es mayor a uno significa que hay elevado uso de CPU.
+3- Buffer hit y Library hit cerca del 100%
+	--> Buffer hit bajo puede indicar tamanho de bufer cache insuficiente, lectura no eficiente.
+	--> Library hit bajo, library cache insuficiente y no utilizan variables bind.
+4- Execute to parse: porcentaje de SQL ejecutados que ya estaban parseados.
+5- In-memory sort: % de sorts en memoria vs sorts en disco.
+6- Soft-parse: si es menor a 90 o 80 % no se utilizan variables bind.
+
+WAIT EVENTOS
+------------
+1- DB FILE SEQUENTIAL READ ---> Lectura por indice
+2- DB FILE SCATTERED READ ---> Full table access
+3- LOG FILE SYNC ---> Escritura en redo por commit
+4- BUFFER BUSY WAITS ---> Bloques calientes
+5- ENQ: XXX ---> Bloqueos, contenciones.
+
+CPU Time: no es un evento de espera como tal. Tiempo de CPU que la bd consume
+
+* Db file sequential read: lectura por índice (ya sea unique o range scan)
+* Db file scattered read: full table access
+* Direct path read: lectura asíncrona (no pasa por SGA)
+* read by other session: contención en lectura física de datafile
+* Log file sync: escritura a redo por commit
+* Log file parallel write: escritura a redo por checkpoint
+* Buffer busy waits: bloque caliente en memoria
+* Latch free: contención en memoria (normalmente library cache)
+* Enq XXXX: contención en tabla (hay de muchos tipos)
+* Px Deq XXXX: contención por paralelismo
+
+SQL ANALISIS
+-------------
+1- More importants are: Elapsed time, CPU and Gets
+
+* SQL ordered by gets:
+If gets per exec > 500.000, then the query is very costly.
+
+* SQL ordered by Elapsed Time
+See if no too much queries that consumes too many % of totals.
+
+? Obtain sql query from v$sql ---> 
+
+SELECT sql_text FROM v$sql WHERE sql_id='xxxx' order by piece;
+
+OR
+
+SELECT to_char(sql_text) FROM sys.wrh$_sqltext WHERE sql_id='xxxx';
+
+
+
+IO STATS
+--------
+* Av Rd(ms) < 20ms ---> OK
+* Av Rd(ms) > 20ms ---> NOK
+* Verify Buffer waits
+
+HIGH WAIT ON LOG WRITE EVENTS
+-----------------------------
+This class of events are generally when disk I/O are very slow.
+
+ADVISOR STATISTIC
+-----------------
+Size factor = 1 It's the actual situation
+Size factor < 1 Memory is downloading
+Size factor > 1 Memory is uploading
+
+SEGMENT STATISTICS
+-------------------
+* Logical Reads
+* Table scans (Full table access)
+* Row Lock Waits (Rows locks)
+* Buffer Busy Waits (Hot block contention)
+
+Internal tables
+* SYS.WRH$_ACTIVE_SESSION_HISTORY ? sesiones con eventos de espera
+* SYS.WRH$_SQLSTAT ? sqls y estadísticas sobre ellas
+* SYS.WRH$_SQLTEXT  ? texto completo de las sqls
+* SYS.WRH$_SQL_PLAN ? plan de ejecucion de las SQLS
+* SYS.WRM$_SNAPSHOT ? info de los snaps
+
+----------------------------------------------------
+
+OPERATING SYSTEM STATISTICS
+---------------------------
+
+SAR ---> Run with sar -u 1 10  ( CPU)
+* sar -r 1 10 (Memory usage)
+* sar -d 1 10 (Disk I/O)
+

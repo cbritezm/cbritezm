@@ -1,0 +1,80 @@
+
+CREATE USER:
+
+Add new os groups: oper (508), dba (1100) y oinstall (1000)
+Create new os user: oracle (50003) primary group 1000 and secondary 1100,508 user password: oracle
+
+CREATE DIRECTORIES :
+/opt/oracle/app/oracle/product/11.2.0.4/db_1
+/opt/oracle/oraInventory
+
+Install packages:
+
+
+    binutils-2.20.51.0.2-5.11.el6 (x86_64)
+    glibc-2.12-1.7.el6 (x86_64)
+    libgcc-4.4.4-13.el6 (x86_64)
+    libstdc++-4.4.4-13.el6 (x86_64)
+    libaio-0.3.107-10.el6 (x86_64)
+    libXext-1.1 (x86_64)
+    libXtst-1.0.99.2 (x86_64)
+    libX11-1.3 (x86_64)
+    libXau-1.0.5 (x86_64)
+    libxcb-1.5 (x86_64)
+    libXi-1.3 (x86_64)
+    make-3.81-19.el6
+    sysstat-9.0.4-11.el6 (x86_64)
+    compat-libcap1-1.10-1 (x86_64)
+    compat-libstdc++-33-3.2.3-69.el6 (x86_64)
+    gcc-4.4.4-13.el6 (x86_64)
+    gcc-c++-4.4.4-13.el6 (x86_64)
+    glibc-devel-2.12-1.7.el6 (x86_64)
+    ksh  <== any version of ksh is acceptable
+    libstdc++-devel-4.4.4-13.el6 (x86_64)
+    libaio-devel-0.3.107-10.el6 (x86_64)
+
+
+DeSactivate SELINUX
+
+
+Add entries to  /etc/sysctl.conf:
+kernel.sem = 250 32000 100 128
+kernel.shmmni = 65536
+fs.file-max =   6815744
+fs.aio-max-nr = 1048576
+net.ipv4.ip_local_port_range =  9000        65500
+net.core.rmem_default = 262144
+net.core.rmem_max = 4194304
+net.core.wmem_default = 262144
+net.core.wmem_max = 1048576
+kernel.shmmax =  Is the maximum size of a single shared memory segment set in bytes
+kernel.shmall =  SHMMAX/PAGE_SIZE
+
+Configure oracle limits limits.conf" >> /etc/security/limits.conf
+oracle   soft    nproc       2047
+oracle  hard  nproc       16384
+oracle   soft    nofile      2047
+oracle   hard  stack       10240
+
+
+Edit pam.d login for  oracle /etc/pam.d/login
+session      required    pam_limits.so
+
+Modify the profile  /etc/profile
+
+Añadir al  /etc/profile
+if [ \$USER = oracle ] ||[ \$USER = "grid" ]; then if [ \$SHELL = "/bin/ksh" ]; then
+          ulimit -p 16384
+          ulimit -n 65536
+else
+          ulimit -u 16384 -n 65536
+  fi
+fi
+
+Change FS permisions:
+
+chmod -R 775 /opt/oracle
+chown oracle:oinstall /opt/oracle
+chmod -R 775 /bdd
+chown -R oracle:oinstall /bdd
+

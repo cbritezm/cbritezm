@@ -1,0 +1,93 @@
+1- Crear el pfile en bd inicial para obtener el INITorcl(instancia) y copiar el INITorcl y PWDorcl 
+
+create pfile from spfile;
+
+
+2- Setear las variables oracle home y oracle sid en el destino 
+export ORACLE_HOME
+export ORACLE_SID
+
+3- Copiar la base de datos al nuevo destino
+
+4- Modificar el pfile (INITinstance_name) y modificar el path al que apuntan los control files y los dumps files (y otros paths que podrian estar en el pfile):
+
+*.background_dump_dest='/oracle/app/oracle/admin/orcl/bdump'
+*.compatible='10.1.0.5.0'
+*.control_files='/oradata/orcl/control01.ctl','/oradata/orcl/control02.ctl','/oradata/orcl/control03.ctl'
+*.core_dump_dest='/oracle/app/oracle/admin/orcl/cdump'
+
+5- Agregar el servicio de listener
+
+6- levantar la bd en modo mount
+startup mount
+
+7- Setear los valores para los datafiles, logfiles, tempfiles
+
+
+Datafile
+
+select name from v$datafile;
+
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\SYSTEM01.DBF
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\SYSAUX01.DBF
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\UNDOTBS01.DBF
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\USERS01.DBF
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\EXAMPLE01.DBF
+
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\SYSTEM01.DBF' to 'C:\ORADATA\ORCL2\SYSTEM01.DBF'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\SYSAUX01.DBF' to 'C:\ORADATA\ORCL2\SYSAUX01.DBF'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\UNDOTBS01.DBF' to 'C:\ORADATA\ORCL2\UNDOTBS01.DBF'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\USERS01.DBF' to 'C:\ORADATA\ORCL2\USERS01.DBF'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\EXAMPLE01.DBF' to 'C:\ORADATA\ORCL2\EXAMPLE01.DBF'
+
+###############################################################################################
+
+
+
+Tempfile
+
+
+select name from v$tempfile;
+
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\TEMP01.DBF
+
+
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\TEMP01.DBF' to 'C:\ORADATA\ORCL2\TEMP01.DBF'
+
+
+###############################################################################################
+
+
+
+Logfile
+
+
+select member from v$logfile;
+
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO03.LOG
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO02.LOG
+D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO01.LOG
+
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO03.LOG' to 'C:\ORADATA\ORCL2\REDO03.LOG'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO02.LOG' to 'C:\ORADATA\ORCL2\REDO02.LOG'
+
+alter database rename file 'D:\APP\ADMINISTRADOR\ORADATA\ORCL2\REDO01.LOG' to 'C:\ORADATA\ORCL2\REDO01.LOG'
+
+
+################################################################################################
+
+
+8- Bajar la bd y levantar en modo normal
+
+shutdown immediate
+
+
+startup

@@ -1,0 +1,16 @@
+Run the following query to identify the db instance information:
+
+SELECT d.dbid dbid, d.name db_name,i.instance_number inst_num, i.instance_name inst_name FROM v$database d, v$instance i;
+
+
+Run this query to obtain the snapshots generated.
+
+select snap_id,dbid,to_char(snap_time,'dd/mm/yyyy hh24:mi:ss') snap_time, snap_level,baseline from STATS$SNAPSHOT;
+
+
+Run the bash file, snapgen.sh with the information optained
+
+./snapgen.sh
+
+
+

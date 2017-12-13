@@ -1,0 +1,77 @@
+ACTIVE SESSION HISTORY ANALISIS
+-------------------------------
+
+Las métricas de v$active_session_history se van archivando en dba_hist_active_sess_history y wrh$_active_session_history
+------------
+--RUN ASH
+------------
+
+@?/rdbms/admin/ashrpt
+
+------------
+--SQL TUNE
+------------
+
+set pages 9999 lines 192
+col plan_plux_exp form a132
+@?/rdbms/admin/sqlrpt
+
+EXECUTION PLAN
+------------------
+
+RULE ? =8i 
+Reglas en función del orden de las tablas del FROM, clausulas del WHERE, etc..
+optimizer_mode=rule
+COST ? =8i 
+Costes en función de la complejidad de las operaciones
+Necesita tener estadísticas calculadas!!!
+optimizer_mode=all_rows|first_rows|first_rows_X
+
+ALL_ROWS		? maximiza el throughput
+FIRST_ROWS		? minimiza el tiempo de respuesta
+FIRST_ROWS_X		? mix. X=(10,100,1000)
+CHOOSE 		? deprecated desde 10g (? all_rows)
+
+
+-----------------------------
+INTERPRETING EXECUTION PLAN
+-----------------------------
+
+Métodos acceso:
+Full table scan ? se lee todos los bloques de la tabla hasta la HWM (ojo con deletes!!)
+Index lookup
+Index unique scan: solo lee 1 clave
+Index range scan: lee un rango de claves
+Index full scan: lee todas las claves del índice 
+Index fast full scan: lee todo el índice, no ordenado
+Table access by Rowid ?lee directamente la row necesaria. Es lo + rápido
+
+
+JOINS
+Sort Merge: se ordenan los dos inputs (por el mismo campo) y se comparan
+Nested Loops: por cada valor del primer input se recorre todos los valores del segundo input
+Hash Join: se crea un hash con cada input y se comparan
+Cartesian product: todo contra todo. Es lo más ineficaz
+
+------------------------------
+OBTAIN SQL EXECUTION PLAN
+------------------------------
+
+explain plan for
+sql sentence;
+set autotrace;
+
+SELECT * FROM TABLE(dbms_xplan.display);
+
+SELECT PLAN_TABLE_OUTPUT FROM TABLE(DBMS_XPLAN.DISPLAY(NULL, 'statement_id','BASIC'));
+
+A format option that determines the level of detail: BASIC, SERIAL, and TYPICAL, ALL.
+
+----------------------------
+--SESSION TRACE
+----------------------------
+
+EXECUTE DBMS_SYSTEM.SET_SQL_TRACE_IN_SESSION(SID=>XXX,SERIAL#=>YYYY,SQL_TRACE=>TRUE);
+
+PUT TRACE FILE ON USER_DUMP_DEST
+TKPROF;

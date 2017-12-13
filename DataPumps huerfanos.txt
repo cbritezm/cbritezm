@@ -1,0 +1,67 @@
+https://anargodjaev.wordpress.com/2013/12/17/how-to-cleanup-orphaned-datapump-jobs-from-dba_datapump_jobs/
+
+sqlplus / as sysdba
+SET lines 140
+COL owner_name FORMAT a10;
+COL job_name FORMAT a20
+COL state FORMAT a12 
+COL operation LIKE owner_name
+COL job_mode LIKE owner_name
+SELECT owner_name, job_name, operation, job_mode,
+state, attached_sessions
+FROM dba_datapump_jobs;
+OWNER_NAME JOB_NAME OPERATION JOB_MODE STATE ATTACHED_SESSIONS
+---------- -------------------- ---------- ---------- ------------ -----------------
+ANAR SYS_EXPORT_SCHEMA_01 EXPORT SCHEMA NOT RUNNING 0
+ANAR SYS_EXPORT_SCHEMA_02 EXPORT SCHEMA NOT RUNNING 0
+
+Step 02: Check the state field. For orphaned jobs the state will be NOT RUNNING. So from the output we can say both are orphaned jobs.
+
+Step 03: Drop the master table.
+
+DROP TABLE ANAR.SYS_EXPORT_SCHEMA_01;
+DROP TABLE ANAR.SYS_EXPORT_SCHEMA_02;
+
+Step 04: Check for existing data pump jobs by query issued in step 01. If objects are in recyclebin bin then purge the objects from the recyclebin.
+
+SQL> SELECT owner_name, job_name, operation, job_mode,
+ state, attached_sessions
+ FROM dba_datapump_jobs;
+OWNER_NAME JOB_NAME OPERATION JOB_MODE STATE ATTACHED_SESSIONS
+---------- -------------------- ---------- ---------- ------------ -----------------
+ANAR BIN$xMNQdACzQ6yl22kj EXPORT SCHEMA NOT RUNNING 0
+ 9U0B8A==$0
+ANAR BIN$BmUy4r5MSX+ojxFk EXPORT SCHEMA NOT RUNNING 0
+ sw8ocg==$0
+
+SQL> PURGE TABLE ANAR.SYS_EXPORT_SCHEMA_01;
+Table purged.
+
+SQL> PURGE TABLE ANAR.SYS_EXPORT_SCHEMA_02;
+Table purged.
+
+Check if there is any orphaned jobs again.
+
+SQL> SELECT owner_name, job_name, operation, job_mode,
+state, attached_sessions
+FROM dba_datapump_jobs;
+no rows selected
+
+Step 05: In this stage you did not get any orphaned jobs if the jobs have a master table. If there are still jobs listed in dba_datapump_jobs do cleanup process like below.
+
+SET serveroutput on
+SET lines 100
+DECLARE
+ job1 NUMBER;
+BEGIN
+ job1 := DBMS_DATAPUMP.ATTACH('SYS_EXPORT_SCHEMA_01','ANAR');
+ DBMS_DATAPUMP.STOP_JOB (job1);
+END;
+/
+DECLARE
+ job2 NUMBER;
+BEGIN
+ job2 := DBMS_DATAPUMP.ATTACH('SYS_EXPORT_SCHEMA_02','ANAR');
+ DBMS_DATAPUMP.STOP_JOB (job2);
+END;
+/

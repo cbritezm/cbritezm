@@ -1,0 +1,37 @@
+PASOS PARA HACER MOVE DE TABLAS
+
+1- VER LAS TABLAS Y EL PROPIETARIO
+
+set lines 180
+col owner format a15
+col table_name format a20
+col tablespace_name format a15
+
+select owner,table_name,tablespace_name from dba_tables where tablespace_name='HISTORICO';
+
+2- VERIFICAR LOS CONSTRAINTS ASOCIADOS A ESE TABLESPACE Y EL OWNER DE LOS MISMOS
+
+
+select a.tablespace_name,b.owner,b.constraint_name,b.constraint_type,b.table_name,b.index_name from dba_tables a, all_constraints b where a.table_name=b.table_name and  a.tablespace_name='HISTORICO';
+
+3- CREAR EL TABLESPACE Y MOVER LAS TABLAS
+
+ALTER TABLE xxx MOVE TABLESPACE yyy;
+
+4- MOVER LOS INDICES DE PK AL NUEVO TABLESPACE
+
+ALTER INDEX SCHEMA.INDEX_NAME REBUILD TABLESPACE xxx;
+
+5- ELIMINAR EL TABLESPACE EN DESUSO
+
+DROP TABLESPACE xxx INCLUDING CONTENTS AND DATAFILES;
+
+6- BAJAR LA BD
+
+7- MOVER EL DATAFILE AL DIRECTORIO ORIGINAL
+
+9- MONTAR LA BD
+
+10- RENAME DEL DATAFILE
+
+alter database rename file 'origen' to 'destino';

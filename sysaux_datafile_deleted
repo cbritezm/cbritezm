@@ -1,0 +1,29 @@
+COMO ABRIR UNA BASE DE DATOS CON DATAFILE sysaux ELIMINADA DEL S.O. (rm file.dbf)
+
+1- Abrir la db en modo mount
+
+startup mount
+
+2- Verificar el/los datafiles involucrados
+
+select name from v$datafile;
+
+
+3- Marcar el datafile eliminado en modo drop (eliminado desde el SO)
+
+ALTER DATABASE DATAFILE 'PATH_TO_DATAFILE' OFFLINE DROP;
+
+
+4- CREAR UN NUEVO DATAFILE PARA EL TABLESPACE
+
+ALTER TABLESPACE ADD DATAFILE 'PATH_TO_DATAFILE.DBF' SIZE 1024M AUTOEXTEND ON NEXT 1024M;
+
+
+5- ABRIR LA DB 
+
+ALTER DATABASE OPEN
+
+6- BAJAR LA DB Y VOLVER A LEVANTAR
+
+SHUTDOWN IMMEDIATE
+STARTUP

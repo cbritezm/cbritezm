@@ -1,0 +1,61 @@
+La aplicación se arranca con usuario sppyw. 
+
+root@sppyw:~# df -k
+Filesystem     1K-blocks    Used Available Use% Mounted on
+/dev/sda1       28767356 4673520  22609500  18% /
+none                   4       0         4   0% /sys/fs/cgroup
+udev             1014192       4   1014188   1% /dev
+tmpfs             205008     536    204472   1% /run
+none                5120       0      5120   0% /run/lock
+none             1025028       0   1025028   0% /run/shm
+none              102400       0    102400   0% /run/user
+/dev/sdb1       51474044   55388  48780884   1% /var/tmp
+/dev/sdc1       20510332   50584  19394840   1% /home
+/dev/sde1      103080224   84516  97736496   1% /var/www/data
+/dev/sdd1       20510332   70216  19375208   1% /sppyw
+
+root@sppyw:~# ls -l /var/www --> aplicación
+total 4
+lrwxrwxrwx 1 root  root    12 Jul  1  2014 config -> /home/config
+drwxr-xr-x 4 sppyw sppyw 4096 Mar  2 17:39 data
+lrwxrwxrwx 1 root  root    15 Jul  1  2014 packages -> /sppyw/packages
+
+/var/www/data --> es lo que se ve en la consola, son los repositorios
+/var/tmp/webdav/in/qupload --> todo lo que queremos que se cargue en la BD de sql lite ha de estar aquí. Se carga y se compila.
+python -mv9sppyw.tools -mcompile -pg=gencat,n=2000 --> compila a mano todo el grupo gencat, cuando acaba de compilar genera para cada fichero tgz un rwdata.sq3
+
+* Desde la Web
+- Cuando tenemos los fichero compilados, si nos ponemos encima (en la web), aparecen botones de main, report, history (si tuvieramos info de SO (sar), aparecería otro botón
+de sistema). Y en estas opciones aparecen los diferentes reports.
+- Options --> desing tags --> agregate --> para agrupar ficheros tgz y que los reports sean de todos esos días (p.e un mes), hay que rellenar los parámetros que te pida, cuando
+acabemos de rellenar, hay que darle a run --> a partir de aquí aparecería un fichero (igual que los tgz) con extensión sq3 y con este, podríamos generar los mismos gráficos
+pero para la franja que hemos elegido en la agrupación.
+
+En la graficas indica "# de segundos por segundo" esto significa, p.e, la métrica (db file sequencial) que estamos analizando, está en segundos e indica que ha consumido 1000seg, 
+como el report es de 1h, tenemos 3600seg, por lo tanto para saber cuando segundos de la métrica ha consumido por cada segundo de tiempo, tenemos que hacer una regla de tres:
+
+3600 seg -- 1000seg (metrica)
+ 1h 	 -- x
+
+X = 1000
+    -----
+    3600
+
+Los gráficos muestran 15 queries, pero es eso es un parámetro de la aplicación (edit options)
+
+
+
+Haciendo boton derecho en la consola en "DATA" también podemos hacer un upload, arrastrando (no copiando) el fichero tgz hacia la pantalla del 
+navegador de la aplicación. Haciendolo así sólo carga, faltaría compilar.
+Desde el navegador se puede compilar, a nivel de repositorio (data), grupo (gencat) o BD --> botón derecho "compile all"
+
+Aplicacion hecha en phyton
+Código opensource
+
+* En el navegador:
+- Opciones --> certificado --> validez de un 1 año --> hay que pedírselo a Gerardo (6apr 17). Cuando caduque podremos arrancar la aplicación
+pero no podremos generar gráficos
+Para pedirlo, hacer create certiificado y con el churro que se genere enviarlo a Gerardo para pedir el certificado, cuando nos lo 
+devuelva, instalar que nos envíe.
+- Edit options --> todo lo que hay aquí, es lo que stá en la ruta del servidor /var/www/config, aquí encontramos macros, plugins, etc... podríamos modificar, compilar
+y en edit options, indicarle el nuevo fichero a usar

@@ -1,0 +1,1 @@
+impdp system/ZjVVqj6KatCjREdbhJES@bdppalau2 remap_schema=ticeagg_adm:ticeagg_tmp tables=int_usuaris directory=bkp dumpfile=BDPPALAU1_FULL_22_2015042922.DMP logfile=int_usuaris.log exclude=schema:\"IN ('TIC_ADM','SISTEMES')\",CONSTRAINT,REF_CONSTRAINT
